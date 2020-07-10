@@ -94,7 +94,7 @@ void preinit() {
   delay(1);
 }
  */
-unsigned int period = 1000;
+unsigned int period = 500;
 JLed leds[] = {
     JLed(RED_PIN).Breathe(period).Forever(),
     JLed(GREEN_PIN).Breathe(period).Forever(),
@@ -157,12 +157,12 @@ void loop() {
     switch (results.value) {
       case KEY44_BRIGHTER:
         if (pass == 3)
-          sequence = changePeriod(sequence, period += 1000);
+          sequence = changePeriod(sequence, period += 500);
         pass = 0;
         break;
       case KEY44_DIMMER:
         if (pass == 3)
-          sequence = changePeriod(sequence, period -= 1000);
+          sequence = changePeriod(sequence, period -= 500);
         pass = 0;
         break;
       case KEY44_ON:
