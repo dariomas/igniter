@@ -6,6 +6,10 @@
 //  ~5mA during deepsleep
 #include <ESP8266WiFi.h>
 
+#include <EEPROM_Rotate.h>
+EEPROM_Rotate EEPROMr;
+#define DATA_OFFSET     (0)
+
 //Infrared Input: 4
 //Red: 14
 //Green: 12
@@ -94,15 +98,24 @@ void preinit() {
   delay(1);
 }
  */
-unsigned int period = 500;
+#define PSTEP     (512)
+unsigned int period = PSTEP * 3; // 1.5s;
+unsigned char effe = 0;
 JLed leds[] = {
     JLed(RED_PIN).Breathe(period).Forever(),
     JLed(GREEN_PIN).Breathe(period).Forever(),
     JLed(BLUE_PIN).Breathe(period).Forever(),
     JLed(WHITE_PIN).Breathe(period).Forever()};
+
+JLed ledt[] = {
+    JLed(RED_PIN).Candle(7 /*speed*/, 15 /* jitter*/, 65535 /*period*/),
+    JLed(GREEN_PIN).Candle(7 /*speed*/, 100 /* jitter*/, 65535 /*period*/),
+    JLed(BLUE_PIN).Candle(5 /*speed*/, 15 /* jitter*/, 65535 /*period*/),
+    JLed(WHITE_PIN).Candle(5 /*speed*/, 100 /* jitter*/, 65535 /*period*/)};
+    
 JLedSequence* sequence = NULL;
 
-JLedSequence* changePeriod(JLedSequence* seq, unsigned int period)
+JLedSequence* changePeriod(JLedSequence* seq, unsigned int period, unsigned char effect = 0)
 {
   Serial.print("\nperiod: ");  Serial.println(period);
   leds[0].Breathe(period);
@@ -112,7 +125,10 @@ JLedSequence* changePeriod(JLedSequence* seq, unsigned int period)
 
   if (seq)
     delete seq;
-  seq = new JLedSequence(JLedSequence::eMode::PARALLEL, leds);
+  if (effect > 0)
+    seq = new JLedSequence(JLedSequence::eMode::PARALLEL, ledt);
+   else
+    seq = new JLedSequence(JLedSequence::eMode::PARALLEL, leds);
   return seq;
 }
 
@@ -122,10 +138,24 @@ void setup() {
   Serial.setDebugOutput(true);
 
   // stopWiFiAndSleep();
+  
+  // EEPROM Initialization ---------------------------------------------------
+    EEPROMr.size(10);
+    EEPROMr.begin(4096);
+    long rdata = (PSTEP * EEPROMr.read(DATA_OFFSET));
+    if ((rdata > 65535) || (rdata < PSTEP))
+    {
+      EEPROMr.write(DATA_OFFSET, (period / PSTEP));
+      Serial.println();
+      Serial.printf("Commit %i %s\n", period, EEPROMr.commit() ? "OK" : "KO");
+    }
+    else
+      period = rdata;
+
 
   while(!Serial);
   Serial.println("\nIgniter v0.2\r\n Dariomas 2020 / 07");
-  sequence = changePeriod(sequence, period);
+  sequence = changePeriod(sequence, period, effe);
 
   #ifdef IR_REMOTE
   irrecv.enableIRIn();
@@ -156,13 +186,13 @@ void loop() {
     irrecv.resume(); // Receive the next value
     switch (results.value) {
       case KEY44_BRIGHTER:
-        if (pass == 3)
-          sequence = changePeriod(sequence, period += 500);
+        if (period < (PSTEP * 128))
+          sequence = changePeriod(sequence, period += PSTEP, effe);
         pass = 0;
         break;
       case KEY44_DIMMER:
-        if (pass == 3)
-          sequence = changePeriod(sequence, period -= 500);
+        if (period > PSTEP)
+          sequence = changePeriod(sequence, period -= PSTEP, effe);
         pass = 0;
         break;
       case KEY44_ON:
@@ -175,8 +205,12 @@ void loop() {
         break;
       case KEY44_RED:
         if (pass == 2)
+        {
           pass = 0;
-          // TODO: read flash !
+          // read flash !
+          period = (PSTEP * EEPROMr.read(DATA_OFFSET));
+          sequence = changePeriod(sequence, period, effe);
+        }
         else
           pass = 0;
         break;
@@ -189,8 +223,12 @@ void loop() {
       case KEY44_WHITE:
          // on full
         if (pass == 2)
+        {
           pass = 0;
-          // TODO: save flash !
+          // save flash !
+          EEPROMr.write(DATA_OFFSET, (period / PSTEP));
+          EEPROMr.commit();
+        }
         else
           pass = 0;
         break;
@@ -249,7 +287,7 @@ void loop() {
         if (pass == 0)
           pass = 3;
         else if (pass == 2)
-          period = 1000;
+          sequence = changePeriod(sequence, period = PSTEP, effe);
         else
           pass = 0;
         break;
@@ -261,9 +299,11 @@ void loop() {
         break;
       case KEY44_FADE:
         pass = 0;
+        effe = 0;
         break;
       case KEY44_SMOOT:
         pass = 0;
+        effe = 1;
         break;
       case 0xFFFFFF:
         break;
