@@ -8,7 +8,7 @@
 
 #include <EEPROM_Rotate.h>
 EEPROM_Rotate EEPROMr;
-#define DATA_OFFSET     (0)
+#define DATA_OFFSET     (4)
 
 //Infrared Input: 4
 //Red: 14
@@ -112,7 +112,7 @@ JLed ledt[] = {
     JLed(GREEN_PIN).Candle(7 /*speed*/, 100 /* jitter*/, 65535 /*period*/),
     JLed(BLUE_PIN).Candle(5 /*speed*/, 15 /* jitter*/, 65535 /*period*/),
     JLed(WHITE_PIN).Candle(5 /*speed*/, 100 /* jitter*/, 65535 /*period*/)};
-    
+
 JLedSequence* sequence = NULL;
 
 JLedSequence* changePeriod(JLedSequence* seq, unsigned int period, unsigned char effect = 0)
@@ -138,7 +138,7 @@ void setup() {
   Serial.setDebugOutput(true);
 
   // stopWiFiAndSleep();
-  
+
   // EEPROM Initialization ---------------------------------------------------
     EEPROMr.size(10);
     EEPROMr.begin(4096);
